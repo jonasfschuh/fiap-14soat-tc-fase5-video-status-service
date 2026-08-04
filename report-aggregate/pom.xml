@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>br.com.fiap</groupId>
+        <artifactId>video-status-ms</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>video-status-report-aggregate</artifactId>
+    <packaging>pom</packaging>
+    <name>Video Status Report Aggregate</name>
+    <description>Módulo de agregação de cobertura JaCoCo dos 3 módulos: domain, infrastructure e application</description>
+
+    <!--
+        Dependências de todos os módulos produtivos para que o JaCoCo:
+          1) encontre os exec files de cada módulo
+          2) leia as classes compiladas (target/classes) de cada um
+        O módulo application usa classifier=exec no fat jar, então o artifact principal
+        permanece como jar normal que o JaCoCo consegue inspecionar.
+    -->
+    <dependencies>
+        <dependency>
+            <groupId>br.com.fiap</groupId>
+            <artifactId>video-status-domain</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>br.com.fiap</groupId>
+            <artifactId>video-status-infrastructure</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>br.com.fiap</groupId>
+            <artifactId>video-status-application</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Sem testes neste módulo: desabilita o surefire -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <!-- Desabilita execuções herdadas do pom pai (sem exec file neste módulo) -->
+                    <execution>
+                        <id>prepare-agent</id>
+                        <phase>none</phase>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>none</phase>
+                    </execution>
+                    <execution>
+                        <id>check-coverage</id>
+                        <phase>none</phase>
+                    </execution>
+
+                    <!--
+                        Relatório AGREGADO dos 3 módulos.
+                        O goal report-aggregate coleta automaticamente os exec files
+                        de todos os módulos do reactor que são dependências deste módulo.
+                    -->
+                    <execution>
+                        <id>aggregate-report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report-aggregate</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/site/jacoco-aggregate</outputDirectory>
+                            <title>Video Status MS - Cobertura Agregada (domain + infrastructure + application)</title>
+                            <!-- Mesmas exclusões do check-coverage no pom raiz -->
+                            <excludes>
+                                <exclude>**/VideoStatusApplication.class</exclude>
+                                <exclude>**/AwsSqsConfiguration.class</exclude>
+                                <exclude>**/SwaggerConfiguration.class</exclude>
+                                <exclude>**/JpaConfiguration.class</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
