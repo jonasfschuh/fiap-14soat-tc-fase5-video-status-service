@@ -1,0 +1,81 @@
+version: '3.8'
+name: ms-video-status
+services:
+
+  # ─── PostgreSQL ──────────────────────────────────────────────────────────
+  postgres-video-status:
+    image: postgres:16-alpine
+    container_name: postgres-video-status
+    environment:
+      POSTGRES_DB: video_status_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-video-status-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─── Video Status API ────────────────────────────────────────────────────
+  video-status-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: video-status-api
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video-status:5432/video_status_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SERVER_PORT: 8085
+      # AWS / SQS — aponta para LocalStack compartilhado (criado pelo video-upload-service)
+      AWS_SQS_ENABLED: "true"
+      AWS_ENDPOINT_OVERRIDE: http://fiap-localstack:4566
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      SQS_QUEUE_VIDEO_UPLOADED: video-uploaded
+      SQS_QUEUE_VIDEO_EVENTS: video-events
+      # New Relic — license key injetada via .env
+      NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY:-}
+      NEW_RELIC_APP_NAME: video-status-ms-local
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres-video-status:
+        condition: service_healthy
+    networks:
+      - app-network
+      - fiap-network
+    restart: unless-stopped
+
+  # ─── Adminer (DB UI) ─────────────────────────────────────────────────────
+  adminer:
+    image: adminer:latest
+    container_name: adminer-video-status
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres-video-status
+    ports:
+      - "8094:8080"
+    networks:
+      - app-network
+    depends_on:
+      - postgres-video-status
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
+  fiap-network:
+    external: true
+    name: fiap-network
+
+volumes:
+  postgres-video-status-data:
