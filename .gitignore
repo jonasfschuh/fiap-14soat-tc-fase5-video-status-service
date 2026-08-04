@@ -25,7 +25,6 @@ logs/
 *.iml
 *.iws
 *.ipr
-out/
 
 # IDE - Eclipse
 .classpath
