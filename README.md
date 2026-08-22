@@ -1,4 +1,4 @@
-﻿# fiap-14soat-tc-fase5-video-status-service
+# fiap-14soat-tc-fase5-video-status-service
 
 ![Java 21](https://img.shields.io/badge/Java_21-%23ED8B00.svg?style=for-the-badge&logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot_3.4.5-%236DB33F.svg?style=for-the-badge&logo=springboot&logoColor=white)
