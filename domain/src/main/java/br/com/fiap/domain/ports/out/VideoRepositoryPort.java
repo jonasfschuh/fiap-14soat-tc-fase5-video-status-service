@@ -11,4 +11,5 @@ public interface VideoRepositoryPort {
     Optional<Video> findById(UUID id);
     Optional<Video> findByIdAndUserId(UUID id, String userId);
     List<Video> findByUserId(String userId);
+    List<Video> findAll();
 }

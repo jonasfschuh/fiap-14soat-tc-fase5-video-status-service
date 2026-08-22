@@ -16,6 +16,9 @@ public class FindVideosByUserUseCase implements FindVideosByUserInputPort {
 
     @Override
     public List<Video> execute(String userId) {
+        if (userId == null || userId.isBlank()) {
+            return repository.findAll();
+        }
         return repository.findByUserId(userId);
     }
 }

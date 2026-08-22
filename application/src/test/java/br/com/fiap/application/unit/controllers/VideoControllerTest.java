@@ -36,6 +36,19 @@ class VideoControllerTest {
     }
 
     @Test
+    void shouldReturn200OnListAllWhenNoUserIdProvided() {
+        VideoController controller = new VideoController(findVideosByUser, findVideoById);
+        Video v1 = Video.createWithId(UUID.randomUUID(), "user-1", "a.mp4", 1024L, "video/mp4", "key1");
+        Video v2 = Video.createWithId(UUID.randomUUID(), "user-2", "b.mp4", 512L, "video/mp4", "key2");
+        when(findVideosByUser.execute(null)).thenReturn(List.of(v1, v2));
+
+        ResponseEntity<?> response = controller.listByUser(null);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).asList().hasSize(2);
+    }
+
+    @Test
     void shouldReturn200OnGetById() {
         VideoController controller = new VideoController(findVideosByUser, findVideoById);
         UUID id = UUID.randomUUID();

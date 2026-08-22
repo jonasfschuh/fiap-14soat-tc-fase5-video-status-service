@@ -107,4 +107,16 @@ class VideoRepositoryImplTest {
 
         assertThat(repository.findByUserId("user-x")).isEmpty();
     }
+
+    @Test
+    @DisplayName("findAll returns all domain videos")
+    void findAll_returnsMappedList() {
+        Video v1 = Video.createWithId(UUID.randomUUID(), "user-1", "a.mp4", 1024L, "video/mp4", "key1");
+        Video v2 = Video.createWithId(UUID.randomUUID(), "user-2", "b.mp4", 512L, "video/mp4", "key2");
+        when(jpaRepository.findAll()).thenReturn(List.of(new VideoEntity(v1), new VideoEntity(v2)));
+
+        List<Video> result = repository.findAll();
+
+        assertThat(result).hasSize(2);
+    }
 }

@@ -94,7 +94,7 @@
                                     </rules>
                                     <excludes>
                                         <exclude>**/VideoStatusApplication.class</exclude>
-                                        <exclude>**/AwsSqsConfiguration.class</exclude>
+                                        <exclude>**/RabbitMqConfiguration.class</exclude>
                                         <exclude>**/SwaggerConfiguration.class</exclude>
                                         <exclude>**/JpaConfiguration.class</exclude>
                                     </excludes>

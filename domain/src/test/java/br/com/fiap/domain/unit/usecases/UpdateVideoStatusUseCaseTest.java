@@ -43,6 +43,20 @@ class UpdateVideoStatusUseCaseTest {
     }
 
     @Test
+    void shouldUpdateStatusAndStorageKeyWhenOutputKeyProvided() {
+        UUID id = UUID.randomUUID();
+        String outputPath = "E:\\DEV\\processed\\frames.zip";
+        Video video = Video.createWithId(id, "user-1", "video.mp4", 1024L, "video/mp4", "videos/user-1/video.mp4");
+        when(repository.findById(id)).thenReturn(Optional.of(video));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Video result = useCase.execute(id, VideoStatus.DONE, outputPath);
+
+        assertThat(result.getStatus()).isEqualTo(VideoStatus.DONE);
+        assertThat(result.getStorageKey()).isEqualTo(outputPath);
+    }
+
+    @Test
     void shouldThrowNotFoundWhenVideoDoesNotExist() {
         UUID id = UUID.randomUUID();
         when(repository.findById(id)).thenReturn(Optional.empty());

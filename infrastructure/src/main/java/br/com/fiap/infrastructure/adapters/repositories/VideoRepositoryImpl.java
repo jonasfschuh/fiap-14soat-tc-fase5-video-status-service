@@ -38,4 +38,11 @@ public class VideoRepositoryImpl implements VideoRepositoryPort {
                 .map(VideoEntity::toDomain)
                 .toList();
     }
+
+    @Override
+    public List<Video> findAll() {
+        return jpaRepository.findAll().stream()
+                .map(VideoEntity::toDomain)
+                .toList();
+    }
 }

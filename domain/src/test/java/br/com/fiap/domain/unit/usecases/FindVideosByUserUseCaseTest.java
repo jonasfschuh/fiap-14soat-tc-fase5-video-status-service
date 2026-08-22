@@ -43,4 +43,25 @@ class FindVideosByUserUseCaseTest {
         List<Video> result = useCase.execute("user-123");
         assertThat(result).isEmpty();
     }
+
+    @Test
+    void shouldReturnAllVideosWhenUserIdIsNull() {
+        Video v1 = Video.createWithId(UUID.randomUUID(), "user-1", "a.mp4", 1024L, "video/mp4", "key1");
+        Video v2 = Video.createWithId(UUID.randomUUID(), "user-2", "b.mp4", 2048L, "video/mp4", "key2");
+        when(repository.findAll()).thenReturn(List.of(v1, v2));
+
+        List<Video> result = useCase.execute(null);
+
+        assertThat(result).hasSize(2);
+    }
+
+    @Test
+    void shouldReturnAllVideosWhenUserIdIsBlank() {
+        Video v1 = Video.createWithId(UUID.randomUUID(), "user-1", "a.mp4", 1024L, "video/mp4", "key1");
+        when(repository.findAll()).thenReturn(List.of(v1));
+
+        List<Video> result = useCase.execute("   ");
+
+        assertThat(result).hasSize(1);
+    }
 }

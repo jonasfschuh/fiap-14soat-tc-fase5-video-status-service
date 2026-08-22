@@ -5,11 +5,9 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL_16-%23316192.svg?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Flyway](https://img.shields.io/badge/Flyway-%23CC0200.svg?style=for-the-badge&logo=flyway&logoColor=white)
 ![Swagger](https://img.shields.io/badge/OpenAPI_3-%2385EA2D.svg?style=for-the-badge&logo=swagger&logoColor=black)
-![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=for-the-badge&logo=amazonwebservices&logoColor=white)
-![Amazon SQS](https://img.shields.io/badge/Amazon_SQS-%23FF9900.svg?style=for-the-badge&logo=amazonsqs&logoColor=white)
+![RabbitMQ](https://img.shields.io/badge/RabbitMQ-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
 ![Amazon EKS](https://img.shields.io/badge/Amazon_EKS-%23FF9900.svg?style=for-the-badge&logo=amazoneks&logoColor=white)
 ![Amazon RDS](https://img.shields.io/badge/Amazon_RDS-%23527FFF.svg?style=for-the-badge&logo=amazonrds&logoColor=white)
-![LocalStack](https://img.shields.io/badge/LocalStack-%23000000.svg?style=for-the-badge&logo=localstack&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-%23326CE5.svg?style=for-the-badge&logo=kubernetes&logoColor=white)
 ![New Relic](https://img.shields.io/badge/New_Relic-%231CE783.svg?style=for-the-badge&logo=newrelic&logoColor=white)
@@ -56,7 +54,7 @@ Este repositório contém o **microserviço Video Status** da plataforma **FIAP 
 
 A aplicação é desenvolvida em **Spring Boot 3 (Java 21)** com arquitetura hexagonal (Ports & Adapters / Clean Architecture).
 
-> ℹ️ Este serviço **não recebe upload de arquivos nem publica eventos** — ele é um consumidor puro de mensageria (event sourcing/projection) e expõe apenas endpoints de leitura. A infraestrutura local compartilhada (LocalStack + StackPort) é provisionada pelo repositório `video-upload-service`, considerado o "master" da stack local; este repositório apenas se conecta à rede Docker `fiap-network` compartilhada para consumir as mesmas filas SQS.
+> ℹ️ Este serviço **não recebe upload de arquivos nem publica eventos** — ele é um consumidor puro de mensageria (event sourcing/projection) e expõe apenas endpoints de leitura. A stack local usa RabbitMQ na rede Docker `fiap-network` compartilhada para consumir os mesmos eventos publicados pelos demais serviços.
 
 ### Principais funcionalidades
 
@@ -74,7 +72,7 @@ A aplicação é desenvolvida em **Spring Boot 3 (Java 21)** com arquitetura hex
 fiap-14soat-tc-fase5-video-status-service/
 ├── application/      → Controllers REST, DTOs, mappers, exception handlers, testes BDD (Cucumber)
 ├── domain/           → Modelos, use cases, ports de entrada e saída, exceções de domínio
-├── infrastructure/   → Adapters JPA, SQS (consumers), configurações, migrations Flyway
+├── infrastructure/   → Adapters JPA, RabbitMQ (consumers), configurações, migrations Flyway
 └── report-aggregate/ → Agregador de cobertura JaCoCo (multi-módulo)
 ```
 
@@ -104,8 +102,8 @@ fiap-14soat-tc-fase5-video-status-service/
 ┌─────────────────────────▼──────────────────────────────────┐
 │                  Infrastructure Layer                       │
 │   VideoRepositoryImpl (JPA)                                 │
-│   VideoUploadedSqsConsumer  │  VideoEventsSqsConsumer        │
-│   HttpCorrelationLoggingFilter  │  SqsMessageLogger         │
+│   RabbitVideoUploadedConsumerAdapter │ RabbitVideoEventsConsumerAdapter │
+│   HttpCorrelationLoggingFilter  │  RabbitMqConfiguration    │
 │   Flyway Migrations                                         │
 └────────────────────────────────────────────────────────────┘
 ```
@@ -116,11 +114,11 @@ fiap-14soat-tc-fase5-video-status-service/
 [video-upload-service]                    [video-processing-service]
     │  publica video-uploaded                  │  publica video-events
     ▼                                           ▼
-[SQS: video-uploaded]                     [SQS: video-events]
+[RabbitMQ: video-uploaded]               [RabbitMQ: video-events]
     │                                           │
     ▼                                           ▼
-[VideoUploadedSqsConsumer]                [VideoEventsSqsConsumer]
-    │  poll (@Scheduled)                       │  poll (@Scheduled)
+[RabbitVideoUploadedConsumerAdapter]      [RabbitVideoEventsConsumerAdapter]
+    │  @RabbitListener                         │  @RabbitListener
     ▼                                           ▼
 [RegisterVideoUploadedUseCase]            [UpdateVideoStatusUseCase]
     │  idempotente: só insere se ainda         │  atualiza status do
@@ -148,7 +146,7 @@ fiap-14soat-tc-fase5-video-status-service/
 [200 OK] → status + metadados do(s) vídeo(s)
 ```
 
-### Evento consumido do SQS (`video-uploaded`)
+### Evento consumido do RabbitMQ (`video-uploaded`)
 
 ```json
 {
@@ -162,7 +160,7 @@ fiap-14soat-tc-fase5-video-status-service/
 }
 ```
 
-### Evento consumido do SQS (`video-events`)
+### Evento consumido do RabbitMQ (`video-events`)
 
 ```json
 {
@@ -172,23 +170,22 @@ fiap-14soat-tc-fase5-video-status-service/
 }
 ```
 
-### Infraestrutura Local (Docker Compose)
+### Infraestrutura Local (K8s + Docker Compose)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  fiap-network (bridge — compartilhada entre todos os serviços)   │
+│  Kubernetes (Docker Desktop) — namespace fiapx                   │
+│  provisionado pelo fiap-14soat-tc-fase5-iac-terraform            │
 │                                                                   │
 │  ┌─────────────────┐   ┌──────────────────┐                     │
-│  │  video-status   │   │   LocalStack      │                     │
-│  │  :8085          │   │   :4566           │                     │
-│  │  (Spring Boot)  │   │   (compartilhado, │                     │
-│  │                 │   │   subido pelo     │                     │
-│  │                 │   │   video-upload)   │                     │
+│  │  video-status   │   │     RabbitMQ      │                     │
+│  │  :8084          │   │   :5672 / :15672  │                     │
+│  │  (Spring Boot)  │   │   (broker K8s)    │                     │
 │  └────────┬────────┘   └──────────────────┘                     │
 │           │                                                       │
 │  ┌────────▼────────┐   ┌──────────────────┐                     │
 │  │  PostgreSQL     │   │    Adminer        │                     │
-│  │  :5434          │   │    :8094          │                     │
+│  │  :5434 (K8s)    │   │    :8094          │                     │
 │  └─────────────────┘   └──────────────────┘                     │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -206,15 +203,14 @@ fiap-14soat-tc-fase5-video-status-service/
 | **Spring Data JPA** | 3.x | Persistência ORM |
 | **PostgreSQL** | 16 | Banco de dados relacional |
 | **Flyway** | 10.x | Migrações de schema versionadas |
-| **AWS SDK v2** | 2.x | SQS |
+| **Spring AMQP** | 3.x | Integração com RabbitMQ |
 | **Swagger / OpenAPI** | 3.x | Documentação interativa da API |
 
 ### Mensageria
 
 | Tecnologia | Ambiente | Uso |
 |------------|----------|-----|
-| **Amazon SQS** | AWS | Filas `video-uploaded` e `video-events` (produção) |
-| **LocalStack** | Local/Docker | Emulação de SQS (compartilhado via `video-upload-service`) |
+| **RabbitMQ** | Local/Docker/K8s | Exchange `video.events`, filas `video-uploaded` e `video-events` |
 
 ### Testes
 
@@ -272,25 +268,29 @@ As regras abaixo foram aplicadas em todos os repositórios da stack para atender
 
 - [Java 21+](https://adoptium.net/)
 - [Maven 3.9+](https://maven.apache.org/)
-- [Docker Desktop 4.25+](https://www.docker.com/products/docker-desktop/)
+- [Docker Desktop 4.25+](https://www.docker.com/products/docker-desktop/) com Kubernetes habilitado
+- **[`fiap-14soat-tc-fase5-iac-terraform`](https://github.com/jonasfschuh/fiap-14soat-tc-fase5-iac-terraform) provisionado** (fornece RabbitMQ e PostgreSQL no K8s)
 
 ---
 
-### ⚙️ Configuração da rede Docker compartilhada
-
-Antes de subir qualquer serviço, crie a rede externa `fiap-network` (necessária uma única vez por máquina):
+### ⚙️ Pré-requisito: provisionar o iac-terraform
 
 ```bash
-docker network create fiap-network
+# No diretório do iac-terraform:
+bash scripts/setup-cluster.sh
 ```
 
-> 💡 Para consumir as filas SQS (`video-uploaded` / `video-events`), é necessário que o **LocalStack compartilhado** esteja em execução. Ele é provisionado pelo repositório [`video-upload-service`](https://github.com/jonasfschuh/fiap-14soat-tc-fase5-video-upload-service) — suba-o primeiro com `docker-start-full-container.bat` (ou `docker compose up -d localstack`) naquele repositório.
+Isso inicializa o RabbitMQ e o PostgreSQL do status-service no Kubernetes (namespace `fiapx`) e expõe as portas:
+- RabbitMQ AMQP: `localhost:5672` · Management: `localhost:15672`
+- PostgreSQL status: `localhost:5434`
+
+> 💡 O Adminer do status-service está disponível via `docker compose up -d adminer` neste repositório.
 
 ---
 
 ### Opção A — Stack completa com Docker Compose *(recomendado)*
 
-Sobe a aplicação + PostgreSQL + Adminer, conectando-se à rede `fiap-network` para acessar o LocalStack compartilhado:
+Sobe a aplicação conectando-se aos recursos K8s via `host.docker.internal`:
 
 ```bash
 # Build e start de todos os serviços
@@ -305,9 +305,10 @@ docker compose up -d
 
 | Serviço | URL | Descrição |
 |---------|-----|-----------|
-| **API** | http://localhost:8085 | Video Status Service |
-| **Swagger UI** | http://localhost:8085/swagger-ui.html | Documentação interativa |
+| **API** | http://localhost:8084 | Video Status Service |
+| **Swagger UI** | http://localhost:8084/swagger-ui.html | Documentação interativa |
 | **Adminer** | http://localhost:8094 | Interface web do PostgreSQL |
+| **RabbitMQ UI** | http://localhost:15672 | Administração do broker |
 
 ```bash
 # Parar os containers
@@ -319,30 +320,27 @@ docker compose down -v
 
 ---
 
-### Opção B — Apenas infraestrutura local (aplicação rodando na IDE)
+### Opção B — Apenas a aplicação na IDE (infraestrutura no K8s)
 
 ```bash
-# Subir apenas PostgreSQL e Adminer
-docker compose up -d postgres-video-status adminer
-```
+# Garantir que o iac-terraform está provisionado
+# (RabbitMQ em localhost:5672, PostgreSQL em localhost:5434)
 
-Em seguida, execute a aplicação com o profile `local`:
-
-```bash
+# Executar este serviço com profile local
 ./mvnw spring-boot:run -pl application \
   -Dspring-boot.run.arguments="--spring.profiles.active=local"
 ```
 
 ---
 
-### Filas SQS consumidas
+### Filas RabbitMQ consumidas
 
 | Fila | Publicada por | Consumida por este serviço |
 |------|----------------|------------------------------|
-| `video-uploaded` | `video-upload-service` | ✅ `VideoUploadedSqsConsumer` — registra o vídeo com status `PENDING` |
-| `video-events` | `video-processing-service` | ✅ `VideoEventsSqsConsumer` — atualiza o status do vídeo |
+| `video-uploaded` | `video-upload-service` | ✅ `RabbitVideoUploadedConsumerAdapter` — registra o vídeo com status `PENDING` |
+| `video-events` | `video-processing-service` | ✅ `RabbitVideoEventsConsumerAdapter` — atualiza o status do vídeo |
 
-> ℹ️ As filas e suas DLQs são criadas pelo script `scripts/init-localstack.sh` do repositório `video-upload-service` (repositório "master" da infraestrutura local compartilhada).
+> ℹ️ O exchange `video.events`, as filas e suas DLQs são declarados pelo próprio serviço via Spring AMQP.
 
 ---
 
@@ -352,7 +350,7 @@ Em seguida, execute a aplicação com o profile `local`:
 # Compilar e empacotar
 mvn clean package -DskipTests
 
-# Executar (requer PostgreSQL e LocalStack rodando)
+# Executar (requer PostgreSQL e RabbitMQ rodando)
 java -jar application/target/video-status-application-*.jar \
   --spring.profiles.active=local
 ```
@@ -365,14 +363,14 @@ java -jar application/target/video-status-application-*.jar \
 
 | Ambiente | URL |
 |----------|-----|
-| **Local (Docker Compose)** | http://localhost:8085/swagger-ui.html |
-| **OpenAPI JSON** | http://localhost:8085/v3/api-docs |
+| **Local (Docker Compose)** | http://localhost:8084/swagger-ui.html |
+| **OpenAPI JSON** | http://localhost:8084/v3/api-docs |
 
 ### Endpoints Disponíveis
 
 | Método | Path | Auth | Descrição |
 |--------|------|------|-----------|
-| `POST` | `/auth/login` | ❌ | Proxy para auth-lambda (retorna JWT) |
+| `POST` | `/auth/login` | ❌ | Proxy para auth-service (retorna JWT) |
 | `GET` | `/api/videos` | ✅ | Lista vídeos do usuário autenticado |
 | `GET` | `/api/videos/{videoId}` | ✅ | Detalhe e status de um vídeo específico |
 
@@ -381,7 +379,7 @@ java -jar application/target/video-status-application-*.jar \
 ### Exemplo — Listagem de Vídeos
 
 ```bash
-curl http://localhost:8085/api/videos \
+curl http://localhost:8084/api/videos \
   -H "X-User-Id: user-123"
 ```
 
@@ -405,7 +403,7 @@ curl http://localhost:8085/api/videos \
 ### Exemplo — Detalhe do Vídeo
 
 ```bash
-curl http://localhost:8085/api/videos/550e8400-e29b-41d4-a716-446655440000 \
+curl http://localhost:8084/api/videos/550e8400-e29b-41d4-a716-446655440000 \
   -H "X-User-Id: user-123"
 ```
 
@@ -484,16 +482,114 @@ start report-aggregate/target/site/jacoco-aggregate/index.html
 
 | Ordem | Repositório | Descrição |
 |-------|-------------|-----------|
-| 1 | [fiap-14soat-tc-fase5-iac-terraform](https://github.com/jonasfschuh/fiap-14soat-tc-fase5-iac-terraform) | VPC, ECS/EKS, S3, SQS, RDS, Cognito — infraestrutura AWS |
+| 1 | [fiap-14soat-tc-fase5-iac-terraform](https://github.com/jonasfschuh/fiap-14soat-tc-fase5-iac-terraform) | Kubernetes (Docker Desktop) — RabbitMQ, PostgreSQL, Prometheus, Grafana |
 | 2 | [fiap-14soat-tc-fase5-auth-lambda](https://github.com/jonasfschuh/fiap-14soat-tc-fase5-auth-lambda) | Lambda Authorizer + Cognito + API Gateway |
-| 3 | [fiap-14soat-tc-fase5-video-upload-service](https://github.com/jonasfschuh/fiap-14soat-tc-fase5-video-upload-service) | Upload + SQS publisher (repositório master do ambiente local) |
+| 3 | [fiap-14soat-tc-fase5-video-upload-service](https://github.com/jonasfschuh/fiap-14soat-tc-fase5-video-upload-service) | Upload + publisher de eventos no RabbitMQ |
 | 4 | [fiap-14soat-tc-fase5-video-processing-service](https://github.com/jonasfschuh/fiap-14soat-tc-fase5-video-processing-service) | Processa vídeo, extrai frames, gera ZIP |
 | 5 | [fiap-14soat-tc-fase5-video-status-service](https://github.com/jonasfschuh/fiap-14soat-tc-fase5-video-status-service) | **Este repositório** — Status e metadados dos vídeos por usuário |
-| 6 | [fiap-14soat-tc-fase5-video-download-service](https://github.com/jonasfschuh/fiap-14soat-tc-fase5-video-download-service) | Download do ZIP via presigned URL S3 |
+| 6 | [fiap-14soat-tc-fase5-video-download-service](https://github.com/jonasfschuh/fiap-14soat-tc-fase5-video-download-service) | Download do ZIP de frames processados |
 | 7 | [fiap-14soat-tc-fase5-notification-service](https://github.com/jonasfschuh/fiap-14soat-tc-fase5-notification-service) | Notificação por e-mail em caso de erro/conclusão |
 | 8 | [fiap-14soat-tc-fase5-observability](https://github.com/jonasfschuh/fiap-14soat-tc-fase5-observability) | Prometheus + Grafana — dashboards e alertas |
 
 ---
+
+
+---
+
+## ⚙️ CI/CD — Configurando o Self-Hosted Runner
+
+O pipeline de deploy deste repositório utiliza um **GitHub Actions self-hosted runner** rodando na máquina local com acesso ao cluster Kubernetes (Docker Desktop).
+
+### Pré-requisitos do runner
+
+Certifique-se de que a máquina possui instalado:
+
+| Ferramenta | Versão mínima | Verificar |
+|-----------|---------------|-----------|
+| Docker Desktop (com K8s habilitado) | 4.x+ | `docker version` |
+| kubectl | 1.28+ | `kubectl version --client` |
+| Java 21 (JDK) | 21+ | `java -version` |
+| Maven Wrapper | — | `.\mvnw.cmd -version` |
+
+> Para o repositório IAC, também é necessário `terraform` (1.5+) e `helm` (3.x+).
+
+### Passo a passo — configurar o runner
+
+#### 1. Acesse as configurações do repositório no GitHub
+
+```
+GitHub → Repositório → Settings → Actions → Runners → New self-hosted runner
+```
+
+#### 2. Escolha o sistema operacional
+
+Selecione **Windows** e a arquitetura **x64**.
+
+#### 3. Baixe e configure o runner
+
+Execute os comandos exibidos pelo GitHub na sua máquina local (PowerShell como Administrador):
+
+```powershell
+# Criar pasta para o runner (ajuste o caminho se necessário)
+mkdir C:\actions-runner; cd C:\actions-runner
+
+# Baixar o runner (substitua a URL pela exibida no GitHub)
+Invoke-WebRequest -Uri https://github.com/actions/runner/releases/download/vX.X.X/actions-runner-win-x64-X.X.X.zip -OutFile actions-runner.zip
+
+# Extrair
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::ExtractToDirectory("$PWD\actions-runner.zip", "$PWD")
+
+# Configurar (use o token gerado pelo GitHub na tela de configuração)
+.\config.cmd --url https://github.com/<org>/<repo> --token <TOKEN-GERADO-PELO-GITHUB>
+```
+
+#### 4. Instalar como serviço Windows (recomendado)
+
+```powershell
+# Instalar e iniciar como serviço Windows (executa automaticamente no boot)
+.\svc.cmd install
+.\svc.cmd start
+
+# Verificar status
+.\svc.cmd status
+```
+
+#### 5. Verificar o runner no GitHub
+
+```
+GitHub → Repositório → Settings → Actions → Runners
+```
+
+O runner deve aparecer com status **Idle** (verde). A partir daí, qualquer push para `main` ou `develop` disparará o pipeline de deploy automaticamente.
+
+### Verificar o deploy após o pipeline
+
+```powershell
+# Listar pods no namespace fiapx
+kubectl get pods -n fiapx
+
+# Verificar logs do serviço
+kubectl logs -l app=<nome-do-app> -n fiapx --tail=50
+
+# Acessar via Swagger (após NGINX Ingress estar ativo)
+# http://localhost/<caminho>/swagger-ui.html
+```
+
+### Gerenciar o runner
+
+```powershell
+# Parar o serviço
+.\svc.cmd stop
+
+# Remover o serviço
+.\svc.cmd uninstall
+
+# Remover o runner do GitHub
+.\config.cmd remove --token <TOKEN>
+```
+
+> 💡 **Dica:** Para múltiplos repositórios, crie uma pasta separada para cada runner (ex: `C:\actions-runner\auth`, `C:\actions-runner\upload`) e repita o processo para cada um.
 
 <div align="center">
 

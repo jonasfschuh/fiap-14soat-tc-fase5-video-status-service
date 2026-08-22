@@ -18,11 +18,14 @@ public class UpdateVideoStatusUseCase implements UpdateVideoStatusInputPort {
     }
 
     @Override
-    public Video execute(UUID videoId, VideoStatus status) {
+    public Video execute(UUID videoId, VideoStatus status, String outputKey) {
         Video video = repository.findById(videoId)
                 .orElseThrow(() -> new VideoNotFoundException(videoId.toString()));
 
         video.setStatus(status);
+        if (outputKey != null && !outputKey.isBlank()) {
+            video.setStorageKey(outputKey);
+        }
         video.setUpdatedAt(LocalDateTime.now());
 
         return repository.save(video);

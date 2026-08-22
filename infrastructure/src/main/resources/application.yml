@@ -15,9 +15,15 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    virtual-host: ${RABBITMQ_VHOST:fiapx}
+    username: ${RABBITMQ_USER:fiapx}
+    password: ${RABBITMQ_PASSWORD:fiapx123}
 
 server:
-  port: ${SERVER_PORT:8085}
+  port: ${SERVER_PORT:8084}
 
 management:
   endpoints:
@@ -30,22 +36,9 @@ management:
         enabled: true
       show-details: always
 
-aws:
-  region: ${AWS_REGION:us-east-1}
-  access-key-id: ${AWS_ACCESS_KEY_ID:test}
-  secret-access-key: ${AWS_SECRET_ACCESS_KEY:test}
-  endpoint-override: ${AWS_ENDPOINT_OVERRIDE:}
-  sqs:
-    enabled: ${AWS_SQS_ENABLED:false}
-    poll:
-      interval-ms: ${SQS_POLL_INTERVAL_MS:5000}
-    queues:
-      video-uploaded: ${SQS_QUEUE_VIDEO_UPLOADED:http://localhost:4566/000000000000/video-uploaded}
-      video-events: ${SQS_QUEUE_VIDEO_EVENTS:http://localhost:4566/000000000000/video-events}
-
 auth:
-  lambda:
-    url: ${AUTH_LAMBDA_URL:}
+  service:
+    url: ${AUTH_SERVICE_URL:http://localhost:8090}
 
 logging:
   level:
@@ -66,9 +59,15 @@ spring:
     database-platform: org.hibernate.dialect.H2Dialect
   flyway:
     enabled: false
-aws:
-  sqs:
-    enabled: false
+  rabbitmq:
+    dynamic: false
+    listener:
+      simple:
+        auto-startup: false
+
+auth:
+  service:
+    url:
 
 ---
 spring:
@@ -77,6 +76,5 @@ spring:
       on-profile: docker
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres-video-status:5432/video_status_db}
-aws:
-  sqs:
-    enabled: ${AWS_SQS_ENABLED:true}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:fiap-rabbitmq}
