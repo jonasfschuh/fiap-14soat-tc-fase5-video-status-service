@@ -28,9 +28,15 @@ public class VideoController {
     }
 
     @GetMapping
-    @Operation(summary = "List videos", description = "Returns all videos. If X-User-Id header is provided, filters by that user.")
-    public ResponseEntity<List<VideoStatusResponse>> listByUser(
-            @RequestHeader(value = "X-User-Id", required = false) String userId) {
+    @Operation(summary = "List videos", description = "Returns all videos. If X-User-Id header is provided, filters by that user. If videoId param is provided, returns that specific video.")
+    public ResponseEntity<?> listByUser(
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestParam(value = "videoId", required = false) UUID videoId) {
+
+        if (videoId != null) {
+            Video video = findVideoById.execute(videoId, userId);
+            return ResponseEntity.ok(VideoMapper.toStatusResponse(video));
+        }
 
         List<VideoStatusResponse> videos = findVideosByUser.execute(userId)
                 .stream()

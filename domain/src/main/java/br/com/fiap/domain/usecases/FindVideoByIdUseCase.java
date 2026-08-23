@@ -21,7 +21,7 @@ public class FindVideoByIdUseCase implements FindVideoByIdInputPort {
         Video video = repository.findById(videoId)
                 .orElseThrow(() -> new VideoNotFoundException(videoId.toString()));
 
-        if (!video.getUserId().equals(userId)) {
+        if (userId != null && !video.getUserId().equals(userId)) {
             throw new VideoAccessDeniedException(videoId.toString());
         }
 
