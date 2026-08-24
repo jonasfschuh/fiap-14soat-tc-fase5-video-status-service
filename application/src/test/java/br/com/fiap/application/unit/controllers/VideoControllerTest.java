@@ -2,7 +2,6 @@ package br.com.fiap.application.unit.controllers;
 
 import br.com.fiap.application.adapters.VideoController;
 import br.com.fiap.domain.model.Video;
-import br.com.fiap.domain.model.VideoStatus;
 import br.com.fiap.domain.ports.in.FindVideoByIdInputPort;
 import br.com.fiap.domain.ports.in.FindVideosByUserInputPort;
 import org.junit.jupiter.api.Test;
@@ -29,10 +28,10 @@ class VideoControllerTest {
         Video video = Video.createWithId(UUID.randomUUID(), "user-1", "test.mp4", 1024L, "video/mp4", "videos/user-1/test.mp4");
         when(findVideosByUser.execute("user-1")).thenReturn(List.of(video));
 
-        ResponseEntity<?> response = controller.listByUser("user-1");
+        ResponseEntity<?> response = controller.listByUser("user-1", null);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
-        assertThat(response.getBody()).asList().hasSize(1);
+        assertThat(response.getBody()).asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.LIST).hasSize(1);
     }
 
     @Test
@@ -42,10 +41,22 @@ class VideoControllerTest {
         Video v2 = Video.createWithId(UUID.randomUUID(), "user-2", "b.mp4", 512L, "video/mp4", "key2");
         when(findVideosByUser.execute(null)).thenReturn(List.of(v1, v2));
 
-        ResponseEntity<?> response = controller.listByUser(null);
+        ResponseEntity<?> response = controller.listByUser(null, null);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
-        assertThat(response.getBody()).asList().hasSize(2);
+        assertThat(response.getBody()).asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.LIST).hasSize(2);
+    }
+
+    @Test
+    void shouldReturn200OnListByVideoId() {
+        VideoController controller = new VideoController(findVideosByUser, findVideoById);
+        UUID id = UUID.randomUUID();
+        Video video = Video.createWithId(id, "user-1", "test.mp4", 1024L, "video/mp4", "videos/user-1/test.mp4");
+        when(findVideoById.execute(id, null)).thenReturn(video);
+
+        ResponseEntity<?> response = controller.listByUser(null, id);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
     }
 
     @Test
@@ -53,7 +64,6 @@ class VideoControllerTest {
         VideoController controller = new VideoController(findVideosByUser, findVideoById);
         UUID id = UUID.randomUUID();
         Video video = Video.createWithId(id, "user-1", "test.mp4", 1024L, "video/mp4", "videos/user-1/test.mp4");
-        video.setStatus(VideoStatus.DONE);
         when(findVideoById.execute(id, "user-1")).thenReturn(video);
 
         ResponseEntity<?> response = controller.getById("user-1", id);
