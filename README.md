@@ -30,6 +30,7 @@
 - [📋 Descrição](#-descrição)
 - [🏗️ Arquitetura](#️-arquitetura)
 - [🛠️ Tecnologias Utilizadas](#️-tecnologias-utilizadas)
+- [📊 Observabilidade](#-observabilidade)
 - [🔒 Proteção da Branch main](#-proteção-da-branch-main)
 - [🚀 Execução Local](#-execução-local)
 - [🔌 API — Swagger e Endpoints](#-api--swagger-e-endpoints)
@@ -232,6 +233,32 @@ fiap-14soat-tc-fase5-video-status-service/
 | **Maven** | 3.9+ | Build e gerenciamento de dependências |
 | **New Relic** | 8.x | APM / Observabilidade |
 | **GitHub Actions** | Latest | CI/CD |
+
+---
+
+## 📊 Observabilidade
+
+### Endpoint `/actuator/prometheus`
+
+O Spring Boot Actuator expõe as métricas no formato Prometheus através do endpoint:
+
+| Ambiente | URL |
+|----------|-----|
+| **Local (Docker Compose)** | http://localhost:8084/actuator/prometheus |
+
+A integração é usada pelo repositório [`fiap-14soat-tc-fase5-observability`](https://github.com/jonasfschuh/fiap-14soat-tc-fase5-observability) (Prometheus + Grafana).
+
+| Dependência Maven | Módulo | Finalidade |
+|-------------------|--------|------------|
+| `spring-boot-starter-actuator` | `application` | Expõe o endpoint `/actuator/prometheus` |
+| `micrometer-registry-prometheus` | `application` | Implementação do registry Micrometer que serializa as métricas no formato Prometheus |
+
+> ⚠️ **Causa raiz — HTTP 500 em `/actuator/prometheus`**
+>
+> A dependência `micrometer-registry-prometheus` estava ausente do módulo `application`.
+> O `spring-boot-starter-actuator` declara e expõe o endpoint `/actuator/prometheus`, porém **não inclui** automaticamente o registry do Micrometer para Prometheus — sem ele não há implementação para serializar as métricas, resultando em **HTTP 500** ao acessar o endpoint.
+>
+> **Correção:** adicionar `io.micrometer:micrometer-registry-prometheus` em `application/pom.xml`.
 
 ---
 
