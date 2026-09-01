@@ -92,7 +92,7 @@ class VideoRepositoryImplTest {
     void findByUserId_returnsMappedList() {
         Video video = Video.createWithId(UUID.randomUUID(), "user-1", "test.mp4", 1024L, "video/mp4", "videos/user-1/test.mp4");
         VideoEntity entity = new VideoEntity(video);
-        when(jpaRepository.findByUserId("user-1")).thenReturn(List.of(entity));
+        when(jpaRepository.findByUserIdOrderByCreatedAtDesc("user-1")).thenReturn(List.of(entity));
 
         List<Video> result = repository.findByUserId("user-1");
 
@@ -103,17 +103,17 @@ class VideoRepositoryImplTest {
     @Test
     @DisplayName("findByUserId returns empty list when no videos found")
     void findByUserId_whenNone_returnsEmptyList() {
-        when(jpaRepository.findByUserId("user-x")).thenReturn(List.of());
+        when(jpaRepository.findByUserIdOrderByCreatedAtDesc("user-x")).thenReturn(List.of());
 
         assertThat(repository.findByUserId("user-x")).isEmpty();
     }
 
     @Test
-    @DisplayName("findAll returns all domain videos")
+    @DisplayName("findAll returns all domain videos ordered by newest first")
     void findAll_returnsMappedList() {
         Video v1 = Video.createWithId(UUID.randomUUID(), "user-1", "a.mp4", 1024L, "video/mp4", "key1");
         Video v2 = Video.createWithId(UUID.randomUUID(), "user-2", "b.mp4", 512L, "video/mp4", "key2");
-        when(jpaRepository.findAll()).thenReturn(List.of(new VideoEntity(v1), new VideoEntity(v2)));
+        when(jpaRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(new VideoEntity(v1), new VideoEntity(v2)));
 
         List<Video> result = repository.findAll();
 

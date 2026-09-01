@@ -34,14 +34,14 @@ public class VideoRepositoryImpl implements VideoRepositoryPort {
 
     @Override
     public List<Video> findByUserId(String userId) {
-        return jpaRepository.findByUserId(userId).stream()
+        return jpaRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(VideoEntity::toDomain)
                 .toList();
     }
 
     @Override
     public List<Video> findAll() {
-        return jpaRepository.findAll().stream()
+        return jpaRepository.findAllByOrderByCreatedAtDesc().stream()
                 .map(VideoEntity::toDomain)
                 .toList();
     }
