@@ -78,6 +78,12 @@ spec:
                 secretKeyRef:
                   name: postgres-status-secret
                   key: SPRING_DATASOURCE_PASSWORD
+            - name: NEW_RELIC_LICENSE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: newrelic-secret
+                  key: NEW_RELIC_LICENSE_KEY
+                  optional: true
           resources:
             requests:
               memory: "256Mi"
